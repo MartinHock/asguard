@@ -1,60 +1,25 @@
-# Application Performance Monitoring (APM) & Trace Timelines
+# APM & Trace Timelines
 
-AsGuard includes a built-in, zero-configuration **Application Performance Monitoring (APM)** engine. It automatically tracks database transactions and downstream API interactions executed within the context of an HTTP request, and visualizes them on a responsive, pure CSS/HTML Gantt chart timeline.
-
-This gives developers immediate visibility into slow requests: whether a route was blocked by a poorly optimized SQL query, a slow external payment gateway API, or high database transaction concurrency.
+AsGuard includes a zero-configuration Application Performance Monitoring (APM) engine. It automatically tracks database calls and outbound HTTP calls made during an HTTP request, and renders them as a Gantt chart timeline in the dashboard.
 
 ---
 
-## Technical Features
+## 1. What Gets Traced
 
-### 1. Automatic Diagnostic Interception
-AsGuard hooks directly into .NET's native `DiagnosticListener` framework. When you register AsGuard, it registers an startup observer service (`AsGuardDiagnosticsSubscriber`) that automatically attaches to two major telemetry producers:
+AsGuard hooks into .NET's native `DiagnosticListener` framework at startup — no interceptors, delegating handlers, or code changes required:
 
-*   **Entity Framework Core (`Microsoft.EntityFrameworkCore`)**: Captures execution lifecycle events of every raw SQL query, database migration, or LINQ expression translated to SQL.
-*   **HttpClient (`HttpHandlerDiagnosticListener`)**: Captures outgoing HTTP queries made via the BCL `HttpClient` library (e.g. calling Stripe, Auth0, or internal microservices).
+- **Entity Framework Core** — every SQL query, migration, or LINQ-translated command.
+- **HttpClient** — every outgoing call (Stripe, Auth0, internal services, etc).
 
-This is **fully automatic**. You do not need to register database command interceptors, add custom delegating handlers to your HTTP clients, or modify any business logic.
+Spans are collected in a request-scoped, lock-free collector (`IApmSpanCollector`) safe for concurrent async work like `Task.WhenAll`. Because it's `Scoped`, collected spans are garbage-collected as soon as the request ends — nothing leaks across requests.
 
-### 2. Lock-Free Scoped Trace Collector
-Trace spans are collected inside a request-scoped collector (`IApmSpanCollector`). 
-*   **Thread Safety**: It uses concurrent lock-free collections (`ConcurrentQueue` and `ConcurrentDictionary`) to support asynchronous, multi-threaded request blocks (like calling `Task.WhenAll`).
-*   **Zero Leakage**: Since the collection container is registered with `Scoped` lifetime, all gathered spans are garbage-collected immediately once the request completes, eliminating any risks of memory leakage.
-
-### 3. Asynchronous Performance Queue
-Instead of saving query timings synchronously and adding overhead to your request threads, AsGuard queues collected trace spans into an internal `System.Threading.Channels` queue at request completion.
-A long-running hosted persistence service (`ApmSpanPersistenceWorker`) drains this queue in the background and commits trace logs to storage in bulk batches, maintaining **100% fast request execution speeds**.
+Spans are queued into a background channel at request completion and persisted in bulk by a hosted worker (`ApmSpanPersistenceWorker`), so tracing adds no latency to the request itself.
 
 ---
 
-## Database Schema & Tables
+## 2. Per-Request Gantt Timeline
 
-When you enable AsGuard, it automatically creates the `AsGuardApmSpans` table on startup within your configured database.
-
-### SQL Table Schema:
-```sql
-CREATE TABLE [Logging].[AsGuardApmSpans] (
-    [Id] bigint IDENTITY(1,1) NOT NULL PRIMARY KEY,
-    [CorrelationId] nvarchar(64) NOT NULL,
-    [SpanType] nvarchar(32) NOT NULL, -- 'DbQuery' or 'HttpClient'
-    [Name] nvarchar(max) NOT NULL, -- SQL script or full URI
-    [DurationInMilliseconds] float NOT NULL,
-    [StartOffsetInMilliseconds] float NOT NULL,
-    [IsSuccess] bit NOT NULL,
-    [ErrorMessage] nvarchar(max) NULL,
-    [OccurredOnUtc] datetime2 NOT NULL
-);
-CREATE INDEX [IX_AsGuardApmSpans_CorrelationId] ON [Logging].[AsGuardApmSpans] ([CorrelationId]);
-```
-
-*   **CorrelationId**: Links each trace span directly to its parent `RequestLog`.
-*   **StartOffsetInMilliseconds**: Timing offset representing precisely *when* the command executing started relative to the start of the HTTP request. This is crucial for rendering Gantt timelines accurately.
-
----
-
-## Razor Dashboard Gantt Charts
-
-In the AsGuard Dashboard details panel, requests that generated DB queries or outgoing HTTP calls will display a **Trace Spans Timeline**:
+Any request detail panel that produced DB or HTTP spans shows a **Trace Spans Timeline**:
 
 ```text
 Trace Spans Timeline
@@ -70,40 +35,62 @@ Total Duration: 450 ms | Spans Count: 3
 == [20ms (offset 380ms)]
 ```
 
-### Timeline Visual Highlights:
-*   **Color-Coded Tracks**: Database queries display as elegant **purple** bars, while outgoing HTTP calls render as **amber** bars.
-*   **Failure Highlighting**: Spans that threw exceptions or returned non-success HTTP status codes (4xx/5xx) display a warning emoji (`⚠️`) and a glowing **rose border**.
-*   **Interactive Drill-Down**: Clicking on any timeline bar collapses or expands a detailed code block showing the full formatted SQL query text or downstream URI, alongside exception trace details if it failed.
+- Database spans render as **purple** bars, HTTP spans as **amber** bars.
+- Failed spans (thrown exceptions, or 4xx/5xx responses) get a `⚠️` marker and a rose border.
+- Click any bar to expand the full SQL text or request URI, plus exception details on failure.
 
 ---
 
-## Configuration & Disabling Tracing
+## 3. Slow Traces (Cross-Request View)
 
-APM tracing is **enabled by default**. If you wish to disable database and HttpClient telemetry (for instance, to reduce database writes or completely isolate request logs), set the `EnableApmTracing` flag to `false`:
+The Gantt timeline above is scoped to one correlation ID. The dashboard's **Slow Traces** tab ranks the slowest DB/HttpClient spans across *all* requests in a time window (`15m`/`1h`/`6h`/`24h`/`7d`). Clicking a row jumps to that span's correlation ID in the log view.
+
+```http
+GET /request-logs-api/apm/slow-traces?range=1h&limit=20
+```
+
+This is a relative top-N ranking, not an absolute "slow" threshold — there's no `LogRequestsSlowerThan` equivalent for APM spans, so every span in the window is a candidate regardless of actual duration.
+
+A companion endpoint aggregates outbound HTTP calls by target host instead of by span:
+
+```http
+GET /request-logs-api/apm/dependencies?range=1h
+```
+Returns calls, failures, and avg/max/total duration per host — useful for spotting a degraded downstream dependency without digging through individual traces.
+
+---
+
+## 4. Correlation Timeline
+
+APM spans aren't only visible in the per-request panel — `GET /request-logs-api/correlation/{correlationId}` returns request logs, exception/host-log events, *and* APM spans sharing one correlation id, all in chronological order. This is what powers the dashboard's Correlation Timeline view when a request fans out across multiple log types.
+
+---
+
+## 5. Configuration
+
+APM tracing is enabled by default. Disable it to skip all DB/HttpClient telemetry entirely:
 
 ```csharp
 builder.Services.AddRequestLogging(options =>
 {
-    // ... Database configuration ...
-
-    // Deactivate all automatic EF Core & HttpClient tracing
     options.EnableApmTracing = false;
 });
 ```
 
-When `EnableApmTracing` is set to `false`:
-*   `AsGuardDiagnosticsSubscriber` completely bypasses diagnostic listener subscriptions at startup, resulting in **zero telemetry hookup overhead**.
-*   `ApmSpanPersistenceWorker` and the request logging middleware completely skip span timing, collection, and background queuing activities.
+| Option | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| **EnableApmTracing** | `bool` | `true` | Enables EF Core and HttpClient tracing. |
+| **ApmSpanRetentionDays** | `int?` | `7` | Days to retain APM spans before the retention worker deletes them. `null` keeps them forever. |
+| **MaxInMemoryEntries** | `int` | `10_000` | For `InMemory` storage, spans are bounded to roughly 10x this value. |
+
+When disabled, the diagnostics subscriber skips listener registration entirely (zero hookup overhead), and the middleware skips span collection and queuing.
 
 ---
 
-## Performance & Security Considerations
+## 6. Gotchas
 
-### Memory Footprint
-Spans are bounded inside `RequestLoggingOptions.MaxInMemoryEntries * 10` for `InMemory` storage to protect server RAM. For persistent databases, bulk batches flush spans instantly, keeping heap utilization light.
+- **Table**: AsGuard creates an `AsGuardApmSpans` table automatically on startup — no manual migration needed. Each span links back to its parent request via `CorrelationId`.
+- **Sensitive data**: raw SQL command text and full request URIs are logged as intercepted, to maximize debugging value. Make sure `SensitiveHeaders` covers things like `Authorization` or `X-Api-Key` so they don't leak into logged URLs, and be aware that enabling database-level sensitive logging can put parameter values into captured SQL text.
+- **Storage growth**: for persistent providers, spans flush in bulk batches like everything else; for `InMemory`, they're capped relative to `MaxInMemoryEntries` to protect RAM. `ApmSpanRetentionDays` keeps long-term growth in check on persistent providers too.
 
-### Query Parameters & sensitive data
-By default, AsGuard logs the raw database command text and downstream request URIs exactly as intercepted to maximize debugging utility. 
-
-> [!WARNING]
-> Captured SQL texts can contain parameter details if database-level sensitive logging is enabled. Always ensure that `SensitiveHeaders` redact keys like `Authorization` or `X-Api-Key` to keep external HTTP call URLs safe.
+See **[Configuration Reference](../configuration.md)** for the full options list, and **[Dashboard & Web API](dashboard-api.md)** for the `slow-traces`, `dependencies`, and `correlation` endpoints.

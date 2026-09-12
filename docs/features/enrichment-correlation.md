@@ -23,18 +23,17 @@ builder.Services.AddRequestLogging(options =>
 
 ### W3C Distributed Tracing (Trace Context)
 
-In modern microservice architectures, incoming requests may originate from external applications or other services. To coordinate traces across these distributed boundaries, AsGuard supports the standard **W3C Trace Context** out-of-the-box when `EnableW3CPropagation` is enabled:
+When `EnableW3CPropagation` is enabled (default `true`), AsGuard also understands the standard **W3C Trace Context**, so traces stay coherent across service boundaries:
 
-1. **Incoming traceparent**: If an incoming request contains a `traceparent` header (e.g. `00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01`), AsGuard extracts the 32-character hexadecimal `traceId` (`4bf92f3577b34da6a3ce929d0e0e4736`) and assigns it as the active `CorrelationId`.
-2. **Deterministic MD5 Hashing (MD5 Detour)**: If traditional correlation headers (e.g. `X-Correlation-ID`) are present but do not comply with the W3C 32-character hexadecimal format, AsGuard dynamically hashes the value using MD5. This derives a deterministic and compliant 32-character hex `traceId` so the request can still be traced cleanly across downstream boundaries.
-3. **Outgoing traceparent**: When communicating with other services via `HttpClient`, AsGuard automatically injects the `traceparent` header (`00-{traceId}-{newSpanId}-01`) where `newSpanId` is a random 8-byte hexadecimal string generated specifically for the outgoing span context.
-4. **Response Propagation**: The W3C compliant `traceparent` is automatically appended to the outgoing HTTP response headers.
+1. **Incoming `traceparent`**: if present (e.g. `00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01`), AsGuard extracts the 32-character hex `traceId` and uses it as the `CorrelationId`.
+2. **MD5 detour**: if a traditional correlation header is present but isn't valid 32-character hex, AsGuard deterministically MD5-hashes it into a compliant `traceId` — so the request still traces cleanly downstream without altering the original correlation ID.
+3. **Outgoing `traceparent`**: outbound `HttpClient` calls get `00-{traceId}-{newSpanId}-01` injected automatically, with a fresh random `spanId` per span.
+4. **Response propagation**: the resulting `traceparent` is appended to the outgoing HTTP response headers too.
 
 ```csharp
 builder.Services.AddRequestLogging(options =>
 {
-    // Enable W3C traceparent header context propagation (Default: true)
-    options.EnableW3CPropagation = true;
+    options.EnableW3CPropagation = true; // Default: true
 });
 ```
 

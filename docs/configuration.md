@@ -1,245 +1,207 @@
 # Configuration & Options Reference
 
-AsGuard is highly customizable. All features, performance structures, security systems, and storage settings are configured via `RequestLoggingOptions` in the `AddRequestLogging` dependency injection extension.
+Every AsGuard feature, queue, and security setting is configured through `RequestLoggingOptions` in the `AddRequestLogging` call.
 
 ---
 
 ## Complete Options Reference
 
-Here is the exhaustive reference of all properties available on `RequestLoggingOptions`:
-
-| Option | Type | Default Value | Description |
+| Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| **DatabaseProvider** | `LoggingDatabaseProvider` | `LoggingDatabaseProvider.SqlServer` | The database provider to use for persisting logs. Supports `SqlServer`, `PostgreSql`, `Sqlite`, or `InMemory`. |
-| **ConnectionString** | `string` | `""` | Connection string for SQL Server, PostgreSQL, or SQLite. Not used for InMemory. |
-| **QueueCapacity** | `int` | `10_000` | Maximum number of log entries the in-memory request queue can hold. |
-| **QueueOverflowPolicy** | `QueueOverflowPolicy` | `QueueOverflowPolicy.DropNewest` | Behavior when the request log queue reaches capacity (`DropNewest` or `DropOldest`). |
-| **BatchSize** | `int` | `100` | Number of log entries flushed to the database in a single batch. |
-| **EnableExceptionLogging** | `bool` | `true` | Enables/disables exception and log event persistence. |
-| **EnableApmTracing** | `bool` | `true` | Enables/disables automatic APM tracing for database queries (EF Core) and downstream calls (HttpClient). |
-| **EnableW3CPropagation** | `bool` | `true` | Enables/disables W3C standard traceparent header context propagation across HTTP boundaries. |
-| **ExceptionQueueCapacity** | `int` | `5_000` | Maximum number of exception entries the in-memory queue can hold. |
-| **ExceptionQueueOverflowPolicy** | `QueueOverflowPolicy` | `QueueOverflowPolicy.DropNewest` | Behavior when the exception log queue reaches capacity (`DropNewest` or `DropOldest`). |
-| **ExceptionBatchSize** | `int` | `50` | Number of exception/log entries flushed to the database in a single batch. |
-| **MaxInMemoryEntries** | `int` | `10_000` | Maximum retained rows for in-memory stores before oldest items are evicted. |
-| **BroadcastQueueCapacity** | `int` | `2_048` | Live broadcast queue capacity for Server-Sent Events (SSE). |
-| **BroadcastOverflowPolicy** | `BroadcastOverflowPolicy` | `BroadcastOverflowPolicy.DropOldest` | Behavior when the broadcast queue reaches capacity (`DropNewest` or `DropOldest`). |
-| **BroadcastDetailMode** | `BroadcastDetailMode` | `BroadcastDetailMode.SummaryOnly` | Controls how much detail is pushed over SSE for live rows (`SummaryOnly` or `Full`). |
-| **EnableDetailedLogEndpoint** | `bool` | `true` | Enables/disables endpoints used to fetch headers, bodies, stack traces, and metadata on demand. |
-| **CaptureHostLogs** | `bool` | `true` | Captures host application `ILogger` events into the exceptions dashboard. |
-| **HostLogMinimumLevel** | `LogLevel` | `LogLevel.Warning` | Minimum host application `ILogger` level captured by AsGuard. |
-| **ExcludedHostLogCategoryPrefixes** | `HashSet<string>` | `["AsGuard."]` | Host logger categories excluded from capture (case-insensitive prefixes). |
-| **CorrelationHeaderName** | `string` | `"X-Correlation-ID"` | HTTP header used to propagate correlation identifiers. |
-| **RequestRetentionDays** | `int?` | `null` | Retention period (days) for request data. Disabled when null. |
-| **ExceptionRetentionDays** | `int?` | `null` | Retention period (days) for exception data. Disabled when null. |
-| **RetentionCleanupInterval** | `TimeSpan` | `6 hours` | How often the background retention worker deletes expired logs. |
-| **QueuePressureAlertThreshold** | `double?` | `0.8` | Queue depth ratio that triggers queue pressure alerts (e.g. 0.8 = 80%). Disabled when null. |
-| **ExceptionSpikeAlertThreshold** | `int?` | `null` | Number of exceptions in a rolling window that triggers an alert. Disabled when null. |
-| **ExceptionSpikeAlertWindow** | `TimeSpan` | `5 minutes` | Rolling window used for exception spike alerts. |
+| **DatabaseProvider** | `LoggingDatabaseProvider` | `SqlServer` | `SqlServer`, `PostgreSql`, `Sqlite`, or `InMemory`. |
+| **ConnectionString** | `string` | `""` | Connection string for SQL Server, PostgreSQL, or SQLite. Unused for `InMemory`. |
+| **QueueCapacity** | `int` | `10_000` | Max in-memory request log queue size. |
+| **QueueOverflowPolicy** | `QueueOverflowPolicy` | `DropNewest` | `DropNewest` or `DropOldest` when the request queue is full. |
+| **BatchSize** | `int` | `100` | Log entries flushed per database batch. |
+| **EnableExceptionLogging** | `bool` | `true` | Enables exception and log event persistence. |
+| **EnableApmTracing** | `bool` | `true` | Enables automatic APM tracing for EF Core queries and HttpClient calls. |
+| **EnableW3CPropagation** | `bool` | `true` | Enables W3C `traceparent` header propagation across HTTP boundaries. |
+| **ExceptionQueueCapacity** | `int` | `5_000` | Max in-memory exception queue size. |
+| **ExceptionQueueOverflowPolicy** | `QueueOverflowPolicy` | `DropNewest` | Overflow behavior for the exception queue. |
+| **ExceptionBatchSize** | `int` | `50` | Exception/log entries flushed per database batch. |
+| **MaxInMemoryEntries** | `int` | `10_000` | Max rows retained by `InMemory` storage before eviction. |
+| **BroadcastQueueCapacity** | `int` | `2_048` | Live broadcast queue capacity for the SSE stream. |
+| **BroadcastOverflowPolicy** | `BroadcastOverflowPolicy` | `DropOldest` | Overflow behavior for the broadcast queue. |
+| **BroadcastDetailMode** | `BroadcastDetailMode` | `SummaryOnly` | `SummaryOnly` or `Full` detail pushed over SSE. |
+| **EnableDetailedLogEndpoint** | `bool` | `true` | Enables endpoints that fetch headers, bodies, and stack traces on demand. |
+| **CaptureHostLogs** | `bool` | `true` | Captures host `ILogger` events into the exceptions dashboard. |
+| **HostLogMinimumLevel** | `LogLevel` | `Warning` | Minimum host `ILogger` level captured. |
+| **ExcludedHostLogCategoryPrefixes** | `HashSet<string>` | `["AsGuard."]` | Logger categories excluded from capture (case-insensitive prefixes). |
+| **CorrelationHeaderName** | `string` | `"X-Correlation-ID"` | HTTP header used to propagate correlation IDs. |
+| **RequestRetentionDays** | `int?` | `null` | Retention period for request data. Disabled when null. |
+| **ExceptionRetentionDays** | `int?` | `null` | Retention period for exception data. Disabled when null. |
+| **RetentionCleanupInterval** | `TimeSpan` | `6 hours` | How often the retention worker deletes expired logs. |
+| **QueuePressureAlertThreshold** | `double?` | `0.8` | Queue depth ratio that triggers a pressure alert. Disabled when null. |
+| **ExceptionSpikeAlertThreshold** | `int?` | `null` | Exceptions per rolling window that trigger an alert. Disabled when null. |
+| **ExceptionSpikeAlertWindow** | `TimeSpan` | `5 minutes` | Rolling window for exception spike alerts. |
 | **AlertCooldown** | `TimeSpan` | `5 minutes` | Minimum time between repeated alerts of the same type. |
-| **SamplingRate** | `double?` | `null` | Sample rate for request logging (0.0 to 1.0). Null means 100% of requests are logged. |
-| **LogRequestsSlowerThan** | `TimeSpan?` | `null` | If set, only requests taking longer than this are logged (exceptions always log). |
-| **LoggableStatusCodes** | `HashSet<int>` | `[]` | If populated, only requests with these status codes will be logged (exceptions always log). |
-| **MaxCapturedBodyBytes** | `int` | `4_096` | Maximum body length captured in bytes before truncation. |
-| **LogRequestBody** | `bool` | `false` | Enables/disables capturing and persisting request bodies. |
-| **LogResponseBody** | `bool` | `false` | Enables/disables capturing and persisting response bodies. |
-| **ExcludedPathPrefixes** | `HashSet<string>` | `["/health", "/swagger", "/metrics"]` | Case-insensitive path prefixes skipped by request logging. |
-| **ExcludedExactPaths** | `HashSet<string>` | `["/health", "/metrics", "/swagger", "/favicon.ico"]` | Case-insensitive exact paths skipped by request logging. |
-| **LoggableContentTypes** | `string[]` | `[]` | Content types eligible for body capture. If empty, all content types are captured. |
-| **SensitiveHeaders** | `HashSet<string>` | `[]` | Headers redacted from logs (e.g. `"Authorization"`). `Set-Cookie` is always redacted. |
-| **SensitiveBodyKeys** | `HashSet<string>` | `[]` | JSON keys whose values should be redacted in request/response bodies. |
-| **EnrichLog** | `Action<HttpContext, RequestLog>?` | `null` | Custom action to enrich the captured RequestLog with extra data or tags dynamically. |
-| **DashboardRoute** | `string` | `"/request-logs-ui"` | Route prefix for the monitoring dashboard. Empty disables dashboard mapping. |
-| **DashboardUsername** | `string` | `""` | Basic Authentication username required to access dashboard and stream. |
-| **DashboardPassword** | `string` | `""` | Basic Authentication password required to access dashboard and stream. |
-| **EnableHostMetrics** | `bool` | `true` | Enables process CPU, memory, and ThreadPool resource sampling and graphing. |
+| **MaxAlertHistoryStored** | `int` | `200` | Max fired alerts retained (`GET /request-logs-api/alerts`). |
+| **SamplingRate** | `double?` | `null` | Fraction of requests logged (`0.0`–`1.0`). `null` = 100%. |
+| **LogRequestsSlowerThan** | `TimeSpan?` | `null` | Only log requests slower than this (exceptions always log). |
+| **LoggableStatusCodes** | `HashSet<int>` | `[]` | If set, only these status codes are logged (exceptions always log). |
+| **MaxCapturedBodyBytes** | `int` | `int.MaxValue` | Byte cap on captured body length before truncation. |
+| **LogRequestBody** | `bool` | `false` | Captures and persists request bodies. |
+| **LogResponseBody** | `bool` | `false` | Captures and persists response bodies. |
+| **ExcludedPathPrefixes** | `HashSet<string>` | `["/health", "/swagger", "/metrics"]` | Path prefixes skipped by request logging. |
+| **ExcludedExactPaths** | `HashSet<string>` | `["/health", "/metrics", "/swagger", "/favicon.ico"]` | Exact paths skipped by request logging. |
+| **LoggableContentTypes** | `string[]` | `[]` | Content types eligible for body capture. Empty = all types. |
+| **SensitiveHeaders** | `HashSet<string>` | `[]` | Headers redacted from logs. `Set-Cookie` is always redacted. |
+| **SensitiveBodyKeys** | `HashSet<string>` | `[]` | JSON keys redacted in request/response bodies. |
+| **EnrichLog** | `Action<HttpContext, RequestLog>?` | `null` | Custom delegate to enrich the captured log with extra data or tags. |
+| **DashboardRoute** | `string` | `"/request-logs-ui"` | Route prefix for the dashboard. Empty disables it. |
+| **DashboardUsername** | `string` | `""` | Basic Auth username for the dashboard, API, and stream. |
+| **DashboardPassword** | `string` | `""` | Basic Auth password for the dashboard, API, and stream. |
+| **EnableHostMetrics** | `bool` | `true` | Enables process CPU/memory/ThreadPool sampling and graphs. |
 | **HostMetricsSampleInterval** | `TimeSpan` | `15 seconds` | Sampling interval for host resource metrics. |
-| **MaxHostMetricsStored** | `int` | `120` | Maximum time-series samples retained in the circular metrics memory buffer (default is 120 samples, which stores 30 minutes of history at a 15-second interval). |
-| **EnableLiveLogConsole** | `bool` | `true` | Enables real-time ILogger console streaming to dashboard clients. |
-| **LiveLogConsoleMinLevel** | `LogLevel` | `LogLevel.Information` | Minimum log level forwarded to the live console terminal. |
-| **EnableHealthChecksVisualizer** | `bool` | `true` | Enables visual monitoring status cards for database and external health dependencies. |
+| **MaxHostMetricsStored** | `int` | `120` | Samples retained in the metrics ring buffer (30 min at the default interval). |
+| **EnableLiveLogConsole** | `bool` | `true` | Streams live `ILogger` output to the dashboard. |
+| **LiveLogConsoleMinLevel** | `LogLevel` | `Information` | Minimum level forwarded to the live console. |
+| **EnableHealthChecksVisualizer** | `bool` | `true` | Enables status cards for registered `HealthCheckService` checks. |
+| **HealthHistorySampleInterval** | `TimeSpan` | `30 seconds` | Sampling interval for health check history. |
+| **MaxHealthHistoryStored** | `int` | `120` | Samples retained in the health history buffer (1 hour at the default interval). |
+| **EnableRedisManagement** | `bool` | `false` | Enables the Redis tab: key browser, inspector/editor, live stats. Opt-in. |
+| **RedisManagementReadOnly** | `bool` | `false` | Makes the Redis tab browse-only; edits, TTL changes, deletes, and flushes are rejected server-side. |
+| **AllowRedisFlushDatabase** | `bool` | `false` | Allows `FLUSHDB` from the dashboard. Also requires `allowAdmin=true` on the connection and a typed confirmation. |
+| **RedisConnections** | `IList<RedisConnectionDescriptor>` | empty | Explicit Redis endpoints, used only when none is discoverable from DI. |
+| **RedisScanPageSize** | `int` | `100` | Keys requested per `SCAN` round trip. AsGuard never issues `KEYS`. |
+| **MaxRedisValueBytes** | `int` | `262144` | Byte cap on an inspected Redis value; larger values truncate and become read-only. |
+| **RedisStatsSampleInterval** | `TimeSpan` | `5 seconds` | Sampling interval for Redis `INFO` stats pushed over SSE. |
+| **RedisSlowlogIncludeArguments** | `bool` | `false` | Shows full command arguments in the Redis slow log. Off by default. |
 
 ---
 
 ## Storage Providers
 
-AsGuard supports 4 storage providers via `DatabaseProvider`. Table structures are automatically validated and initialized at application startup, eliminating the need for manual Entity Framework migrations or script execution.
+Table structures are created and validated automatically at startup — no EF migrations to run.
 
-### 1. SQL Server
-Best for enterprise production environments already using Microsoft SQL Server.
-```csharp
-builder.Services.AddRequestLogging(options =>
-{
-    options.DatabaseProvider = LoggingDatabaseProvider.SqlServer;
-    options.ConnectionString = builder.Configuration.GetConnectionString("SqlServerConnection")!;
-});
-```
+| Provider | Best for | Notes |
+| :--- | :--- | :--- |
+| `SqlServer` | Enterprise production | Standard connection string. |
+| `PostgreSql` | Open-source production | Standard connection string. |
+| `Sqlite` | Local dev, single-container, small apps | `"Data Source=asguard_logs.db;Cache=Shared;"` |
+| `InMemory` | Tests, ephemeral diagnostics | **Not for production.** Restarting the process clears all logs. |
 
-### 2. PostgreSQL
-Best for high-performance open-source production deployments.
 ```csharp
 builder.Services.AddRequestLogging(options =>
 {
     options.DatabaseProvider = LoggingDatabaseProvider.PostgreSql;
     options.ConnectionString = builder.Configuration.GetConnectionString("PostgresConnection")!;
-});
-```
 
-### 3. SQLite
-Excellent for local development, staging environments, single-container Docker deployments, or small-scale applications.
-```csharp
-builder.Services.AddRequestLogging(options =>
-{
-    options.DatabaseProvider = LoggingDatabaseProvider.Sqlite;
-    options.ConnectionString = "Data Source=asguard_logs.db;Cache=Shared;";
+    // InMemory only: cap memory usage
+    options.MaxInMemoryEntries = 5_000;
 });
 ```
-
-### 4. In-Memory
-An ephemeral, process-local memory store. **Do not use in production.** Recommended only for:
-- Integration testing environments.
-- Local diagnostics where zero disk footprints are required.
-- Short-lived diagnostic sessions.
-```csharp
-builder.Services.AddRequestLogging(options =>
-{
-    options.DatabaseProvider = LoggingDatabaseProvider.InMemory;
-    // Cap memory utilization to prevent OutOfMemoryExceptions
-    options.MaxInMemoryEntries = 5_000; 
-});
-```
-> [!WARNING]
-> When using `InMemory` storage, restarting the ASP.NET Core process completely clears all request and exception logs. 
 
 ---
 
-## Performance & Queue Tuning
+## Queue Tuning
 
-Because AsGuard persists logs asynchronously, it handles high-traffic bursts with ease. To optimize memory footprint and write performance, tune the background workers based on your load patterns.
+Logs persist asynchronously through bounded queues, so tune capacity and overflow behavior for your load:
 
 ```csharp
 builder.Services.AddRequestLogging(options =>
 {
-    // Storage Engine Settings
-    options.DatabaseProvider = LoggingDatabaseProvider.PostgreSql;
-    options.ConnectionString = "...";
+    options.QueueCapacity = 20_000;
+    options.QueueOverflowPolicy = QueueOverflowPolicy.DropOldest;
+    options.BatchSize = 250;
 
-    // 1. Request Logging Queue Tuning
-    options.QueueCapacity = 20_000;               // Buffer up to 20,000 logs in memory
-    options.QueueOverflowPolicy = QueueOverflowPolicy.DropOldest; // Evict oldest if full
-    options.BatchSize = 250;                       // Bulk-insert 250 records per batch
-
-    // 2. Exception Logging Queue Tuning (Fewer items, needs reliability)
     options.ExceptionQueueCapacity = 2_000;
-    options.ExceptionQueueOverflowPolicy = QueueOverflowPolicy.DropNewest; // Maintain original errors
-    options.ExceptionBatchSize = 10;               // Write exceptions faster to database
+    options.ExceptionQueueOverflowPolicy = QueueOverflowPolicy.DropNewest;
+    options.ExceptionBatchSize = 10;
 });
 ```
 
-### Queue Overflow Policies:
--   **`QueueOverflowPolicy.DropNewest`**: When the queue is full, new logs are silently discarded. This is the safest setting to prevent high memory pressure from impacting application memory during downstream database outages.
--   **`QueueOverflowPolicy.DropOldest`**: When the queue is full, the oldest items are removed to make room for new items. Best if you always need the most recent diagnostics.
+- **`DropNewest`** — discard new entries when full. Safest default; protects memory during a database outage.
+- **`DropOldest`** — evict the oldest entries to make room. Use when only the most recent diagnostics matter.
 
 ---
 
-## Retention & Automatic Cleanup
+## Retention & Cleanup
 
-To prevent logs from consuming unlimited database storage, configure the built-in **Retention Cleanup Worker**. This background worker runs on a recurring schedule and deletes logs that exceed your configured threshold.
+A background worker deletes logs older than your configured threshold:
 
 ```csharp
 builder.Services.AddRequestLogging(options =>
 {
-    // ... Database configuration ...
-
-    // Keep HTTP Request logs for 14 days
     options.RequestRetentionDays = 14;
-
-    // Keep Exception & Event logs longer for auditing (e.g. 60 days)
     options.ExceptionRetentionDays = 60;
-
-    // Run the cleanup routine every 12 hours (Default: 6 hours)
-    options.RetentionCleanupInterval = TimeSpan.FromHours(12);
+    options.RetentionCleanupInterval = TimeSpan.FromHours(12); // Default: 6 hours
 });
 ```
 
-### Deactivating Retention
-By default, `RequestRetentionDays` and `ExceptionRetentionDays` are set to `null` (disabled). If you want to disable automatic deletion and manage tables yourself (e.g., via database partitioning or custom cron scripts), leave these values as `null`.
+`RequestRetentionDays` and `ExceptionRetentionDays` default to `null` (disabled) — leave them null to manage retention yourself (partitioning, custom cron jobs, etc).
 
 ---
 
-## Performance Metrics & Host Diagnostics
+## Host Metrics, Live Console & Health Checks
 
-AsGuard provides extensive process resource monitoring out-of-the-box. Performance records are cached entirely **in-memory** in a concurrent, thread-safe circular ring buffer, ensuring **zero database migrations** and a negligible storage footprint.
+All three are in-memory, zero-migration features enabled by default:
 
 ```csharp
 builder.Services.AddRequestLogging(options =>
 {
-    // Enable system and process diagnostics graphing
+    // Process CPU/memory/ThreadPool graphs
     options.EnableHostMetrics = true;
-
-    // Sample resource parameters every 30 seconds (Default: 15 seconds)
     options.HostMetricsSampleInterval = TimeSpan.FromSeconds(30);
+    options.MaxHostMetricsStored = 240; // 2 hours at 30s
 
-    // Keep up to 240 samples in memory (2 hours of history at a 30s interval)
-    options.MaxHostMetricsStored = 240;
-});
-```
-
-Metrics captured include process CPU usage (adjusted for environment core counts), working set vs. private memory footprint, ThreadPool pending items, active threads, and GC counts.
-
----
-
-## Live Application Console Logger
-
-You can stream live `ILogger` console logs straight onto your dashboard with sub-millisecond latencies using Server-Sent Events (SSE). 
-
-```csharp
-builder.Services.AddRequestLogging(options =>
-{
-    // Stream real-time logs to connected clients
+    // Live ILogger streaming to the dashboard
     options.EnableLiveLogConsole = true;
-
-    // Minimum severity level captured for the streaming terminal (Default: Information)
     options.LiveLogConsoleMinLevel = LogLevel.Debug;
-});
-```
 
----
-
-## Distributed Tracing & W3C Trace Context
-
-AsGuard supports standard **W3C Trace Context** out-of-the-box, allowing you to propagate trace identifiers across service boundaries using `traceparent` headers. This is essential for auditing execution graphs in microservices.
-
-```csharp
-builder.Services.AddRequestLogging(options =>
-{
-    // Enable W3C traceparent header propagation across downstream HttpClients (Default: true)
-    options.EnableW3CPropagation = true;
-});
-```
-
-### Traceparent Format & MD5 Detour:
-- Conforms perfectly to W3C `00-{traceId}-{spanId}-01` specifications.
-- If incoming traditional correlation headers (e.g., `X-Correlation-ID`) are present but do not comply with the 32-character hexadecimal requirement, AsGuard dynamically hashes the value using MD5. This derives a deterministic and valid 32-character hex traceId without altering the underlying correlation ID.
-
----
-
-## Programmatic Dependency Health Checks
-
-Integrate programmatic dependencies status boards directly into the AsGuard dashboard with **zero configurations**:
-
-```csharp
-builder.Services.AddRequestLogging(options =>
-{
-    // Enable visual status cards for external databases and external APIs
+    // Status cards + trend chart for registered health checks
     options.EnableHealthChecksVisualizer = true;
+    options.HealthHistorySampleInterval = TimeSpan.FromSeconds(15);
+    options.MaxHealthHistoryStored = 240; // 1 hour at 15s
 });
 ```
 
-> [!NOTE]
-> This capability hooks programmatically into standard ASP.NET Core `HealthCheckService`. Make sure to register standard health checks on your application builder startup:
-> ```csharp
-> builder.Services.AddHealthChecks()
->     .AddSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")!)
->     .AddRedis(builder.Configuration.GetConnectionString("Redis")!);
-> ```
+The health visualizer hooks into standard ASP.NET Core health checks — register them normally:
+
+```csharp
+builder.Services.AddHealthChecks()
+    .AddSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")!)
+    .AddRedis(builder.Configuration.GetConnectionString("Redis")!);
+```
+
+Raw history is queryable at `GET /request-logs-api/host-metrics` and `GET /request-logs-api/health/history`.
+
+---
+
+## W3C Trace Context
+
+`EnableW3CPropagation` (default `true`) propagates standard `traceparent` headers across service boundaries:
+
+- Format: `00-{traceId}-{spanId}-01`, per the W3C spec.
+- If an incoming correlation header isn't a valid 32-character hex `traceId`, AsGuard deterministically MD5-hashes it into one, so tracing still works without altering your original correlation ID.
+
+See **[Enrichment & Correlation](features/enrichment-correlation.md)** for the full correlation ID and tracing flow.
+
+---
+
+## Redis Management
+
+Opt-in key browser, value editor, and live `INFO` stats — the only feature flag here that defaults to `false`, since it touches application data, not observability data.
+
+```csharp
+options.EnableRedisManagement = true;
+```
+
+In most apps that's the only setting needed: AsGuard discovers your Redis connection from the host's service provider instead of asking for a connection string, which is what makes it work with token-based auth (e.g. Azure Cache for Redis under Microsoft Entra ID). Keys are always enumerated with `SCAN`, never `KEYS`, and destructive actions are gated behind `RedisManagementReadOnly` and `AllowRedisFlushDatabase`.
+
+See **[Redis Management](features/redis-management.md)** for the connection discovery ladder, editing surface, safety gates, and REST API.
+
+---
+
+## Alert History
+
+Every alert AsGuard fires (queue pressure, exception spike, persistence/broadcast failures) is kept in an in-memory ring buffer in addition to being handed to your `IAsGuardAlertSink`:
+
+```csharp
+builder.Services.AddRequestLogging(options =>
+{
+    options.MaxAlertHistoryStored = 500; // Default: 200
+});
+```
+
+Query the raw history via `GET /request-logs-api/alerts`. See **[Alerts & Production Operations](features/alerts-production.md)** for wiring up Slack/Teams webhooks.
